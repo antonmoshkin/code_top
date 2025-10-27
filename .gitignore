@@ -1,0 +1,27 @@
+# Node modules
+node_modules/
+
+# Medusa build and cache
+.medusa/
+
+# Next.js build output
+.next/
+
+# Yarn cache and files
+.yarn/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+
+# Build outputs
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db

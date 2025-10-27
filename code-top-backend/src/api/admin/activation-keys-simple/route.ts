@@ -13,44 +13,171 @@ export const GET = async (
 ) => {
   try {
     console.log("📋 GET /admin/activation-keys-simple - Fetching activation keys from database")
-    
+
+    const {
+      id,
+      key,
+      product_variant_id,
+      is_used,
+      order_id,
+      used_at,
+      cost,
+      created_by,
+      created_at,
+      updated_at,
+      q,
+      sort = "created_at",
+      order = "desc",
+      limit = "100",
+      offset = "0",
+    } = req.query as Record<string, string | undefined>
+
+    // Validate sort and order
+    const sortableColumns = new Set([
+      "id",
+      "key",
+      "product_variant_id",
+      "is_used",
+      "order_id",
+      "used_at",
+      "created_at",
+      "updated_at",
+      "cost",
+      "created_by",
+      // joined columns
+      "product_title",
+      "variant_title",
+      "variant_sku",
+    ])
+
+    const sortCol = (sort || "created_at").toString()
+    const sortLower = sortCol.toLowerCase()
+    const orderLower = (order || "desc").toString().toLowerCase() === "asc" ? "ASC" : "DESC"
+    const orderBy = sortableColumns.has(sortLower) ? sortLower : "created_at"
+
     // Use direct database connection (bypassing container issues)
-    console.log("📋 GET /admin/activation-keys-simple - Using direct DB connection")
-    
     const client = await getDbConnection()
-    
+
     try {
-      // Get activation keys with product and variant info using SQL JOIN
-      const result = await client.query(`
+      const whereClauses: string[] = []
+      const params: any[] = []
+
+      // Filters by exact match for all table fields
+      const addFilter = (column: string, value?: string) => {
+        if (value === undefined) return
+        const paramIndex = params.length + 1
+        whereClauses.push(`${column} = $${paramIndex}`)
+        params.push(value)
+      }
+
+      addFilter("ak.id", id)
+      addFilter("ak.key", key)
+      addFilter("ak.product_variant_id", product_variant_id)
+      if (typeof is_used !== "undefined") {
+        const paramIndex = params.length + 1
+        whereClauses.push(`ak.is_used = $${paramIndex}`)
+        params.push(is_used === "true" || is_used === "1")
+      }
+      addFilter("ak.order_id", order_id)
+      addFilter("ak.used_at", used_at)
+      addFilter("ak.cost", cost)
+      addFilter("ak.created_by", created_by)
+      addFilter("ak.created_at", created_at)
+      addFilter("ak.updated_at", updated_at)
+
+      // Free-text search across key, product/variant titles and sku
+      if (q && q.trim()) {
+        const idx = params.length + 1
+        whereClauses.push(`(
+          ak.key ILIKE $${idx} OR
+          p.title ILIKE $${idx} OR
+          pv.title ILIKE $${idx} OR
+          pv.sku ILIKE $${idx}
+        )`)
+        params.push(`%${q.trim()}%`)
+      }
+
+      let baseFrom = `
         SELECT 
           ak.id,
           ak.key,
           ak.product_variant_id,
           ak.is_used,
+          ak.order_id,
+          ak.used_at,
+          ak.cost,
+          ak.created_by,
           ak.created_at,
           ak.updated_at,
-          p.title as product_title,
-          pv.title as variant_title,
-          pv.sku as variant_sku
+          p.title AS product_title,
+          pv.title AS variant_title,
+          pv.sku AS variant_sku
         FROM activation_key ak
         LEFT JOIN product_variant pv ON ak.product_variant_id = pv.id
-        LEFT JOIN product p ON pv.product_id = p.id
-        ORDER BY ak.created_at DESC
-      `)
-      
-      // Ensure we have proper fallback values
+        LEFT JOIN product p ON pv.product_id = p.id`
+
+      const whereSql = whereClauses.length ? ` WHERE ${whereClauses.join(" AND ")}` : ""
+
+      // Total count query (without limit/offset)
+      const countSql = `SELECT COUNT(ak.id) AS total FROM activation_key ak
+        LEFT JOIN product_variant pv ON ak.product_variant_id = pv.id
+        LEFT JOIN product p ON pv.product_id = p.id${whereSql}`
+
+      // Data query
+      let sql = `${baseFrom}${whereSql}`
+
+      // Map sort aliases to actual columns
+      const sortMapping: Record<string, string> = {
+        id: "ak.id",
+        key: "ak.key",
+        product_variant_id: "ak.product_variant_id",
+        is_used: "ak.is_used",
+        order_id: "ak.order_id",
+        used_at: "ak.used_at",
+        cost: "ak.cost",
+        created_by: "ak.created_by",
+        created_at: "ak.created_at",
+        updated_at: "ak.updated_at",
+        product_title: "p.title",
+        variant_title: "pv.title",
+        variant_sku: "pv.sku",
+      }
+
+      sql += ` ORDER BY ${sortMapping[orderBy]} ${orderLower}`
+
+      // Compute total BEFORE adding limit/offset to params
+      const countParams = [...params]
+      console.log("Executing count SQL:", countSql)
+      console.log("Count params:", countParams)
+      const countResult = await client.query(countSql, countParams)
+      const total = parseInt(countResult.rows?.[0]?.total ?? "0", 10)
+
+      const limitNum = Math.max(0, Math.min(1000, parseInt(limit as string, 10) || 100))
+      const offsetNum = Math.max(0, parseInt(offset as string, 10) || 0)
+
+      sql += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`
+      params.push(limitNum, offsetNum)
+
+      console.log("Executing data SQL:", sql)
+      console.log("Data params:", params)
+      const result = await client.query(sql, params)
+
       const enrichedKeys = result.rows.map(row => ({
         ...row,
         product_title: row.product_title || "Unknown Product",
         variant_title: row.variant_title || "Default",
         variant_sku: row.variant_sku || "N/A"
       }))
-      
-      console.log(`✅ Found ${enrichedKeys.length} activation keys with product info via SQL JOIN`)
-      
+
       await client.end()
-      
+
       return res.json({
+        count: enrichedKeys.length,
+        total,
+        limit: limitNum,
+        offset: offsetNum,
+        sort: orderBy,
+        order: orderLower,
         activation_keys: enrichedKeys
       })
     } catch (dbError) {
@@ -58,40 +185,11 @@ export const GET = async (
       console.error("❌ Direct database query failed:", dbError)
       throw dbError
     }
-    
-    // Fallback to mock data if all database access fails
-    console.log("🔄 Falling back to mock data due to database error")
-    const mockKeys = [
-      {
-        id: "ak_mock_001",
-        key: "DEMO-KEY-123",
-        product_variant_id: "variant_001", 
-        is_used: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
-    ]
-    
-    res.json({
-      activation_keys: mockKeys
-    })
   } catch (error) {
     console.error("Error fetching activation keys:", error)
-    
-    // Final fallback
-    const mockKeys = [
-      {
-        id: "ak_error_001",
-        key: "ERROR-FALLBACK-KEY",
-        product_variant_id: "variant_error", 
-        is_used: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
-    ]
-    
-    res.json({
-      activation_keys: mockKeys
+    return res.status(500).json({ 
+      message: "Failed to fetch activation keys",
+      error: error instanceof Error ? error.message : "Unknown error"
     })
   }
 }
@@ -114,9 +212,10 @@ export const POST = async (
   try {
     console.log("✏️ POST /admin/activation-keys-simple - Creating activation keys")
     
-    const { product_variant_id, keys } = req.body as {
+    const { product_variant_id, keys, cost } = req.body as {
       product_variant_id: string
       keys: string | string[]
+      cost?: number
     }
 
     if (!product_variant_id) {
@@ -143,15 +242,18 @@ export const POST = async (
       const keysArray = Array.isArray(keys) ? keys : [keys]
       const insertedKeys = []
       
+      // capture creator id if available from auth
+      const createdBy = (req as any).auth_user_id || (req as any).user?.id || null
+
       for (let i = 0; i < keysArray.length; i++) {
         const keyValue = keysArray[i]
         const keyId = `ak_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`
         
         const result = await client.query(
-          `INSERT INTO activation_key (id, key, product_variant_id, is_used, created_at, updated_at) 
-           VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          `INSERT INTO activation_key (id, key, product_variant_id, is_used, cost, created_by, created_at, updated_at) 
+           VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
            RETURNING *`,
-          [keyId, keyValue, product_variant_id, false]
+          [keyId, keyValue, product_variant_id, false, typeof cost === 'number' ? cost : null, createdBy]
         )
         
         insertedKeys.push(result.rows[0])

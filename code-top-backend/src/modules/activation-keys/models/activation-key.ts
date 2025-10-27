@@ -7,6 +7,8 @@ export const ActivationKey = model.define("activation_key", {
   is_used: model.boolean().default(false),
   order_id: model.text().nullable(),
   used_at: model.dateTime().nullable(),
+  cost: model.number().nullable(),
+  created_by: model.text().nullable(),
 })
 
 export default ActivationKey

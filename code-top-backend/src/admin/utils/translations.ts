@@ -9,8 +9,12 @@ export const translations = {
     product: "Product",
     variant: "Variant",
     sku: "SKU",
+    cost: "Cost",
+    createdBy: "Created by",
     status: "Status",
     created: "Created",
+    updated: "Updated",
+    usedAt: "Used at",
     
     // Status values
     used: "Used",
@@ -21,6 +25,10 @@ export const translations = {
     addKey: "Add Key",
     cancel: "Cancel",
     delete: "Delete",
+    apply: "Apply",
+    clear: "Clear",
+    prev: "Previous",
+    next: "Next",
     
     // Drawers
     addActivationKey: "Add Activation Key",
@@ -34,6 +42,7 @@ export const translations = {
     searchProductVariant: "Search for a product variant...",
     enterActivationKey: "Enter activation key",
     searchProductsAndVariants: "Search products and variants...",
+    search: "Search",
     
     // Messages
     loadingActivationKeys: "Loading activation keys...",
@@ -56,6 +65,17 @@ export const translations = {
     // Fallback values
     unknownProduct: "Unknown Product",
     defaultVariant: "Default",
+    // Filters
+    filterStatus: "Filter by status",
+    all: "All",
+    variantFilter: "Variant",
+    sortBy: "Sort by",
+    order: "Order",
+    ascending: "Ascending",
+    descending: "Descending",
+    perPage: "Per page",
+    showing: "Showing",
+    of: "of",
   },
   ru: {
     // Page titles and headers
@@ -67,8 +87,12 @@ export const translations = {
     product: "Товар",
     variant: "Вариант",
     sku: "Артикул",
+    cost: "Стоимость",
+    createdBy: "Создатель",
     status: "Статус",
     created: "Создан",
+    updated: "Обновлен",
+    usedAt: "Использован в",
     
     // Status values
     used: "Использован",
@@ -79,6 +103,10 @@ export const translations = {
     addKey: "Добавить ключ",
     cancel: "Отмена",
     delete: "Удалить",
+    apply: "Применить",
+    clear: "Сбросить",
+    prev: "Назад",
+    next: "Вперед",
     
     // Drawers
     addActivationKey: "Добавить ключ активации",
@@ -92,6 +120,7 @@ export const translations = {
     searchProductVariant: "Поиск варианта товара...",
     enterActivationKey: "Введите ключ активации",
     searchProductsAndVariants: "Поиск товаров и вариантов...",
+    search: "Поиск",
     
     // Messages
     loadingActivationKeys: "Загрузка ключей активации...",
@@ -114,6 +143,17 @@ export const translations = {
     // Fallback values
     unknownProduct: "Неизвестный товар",
     defaultVariant: "По умолчанию",
+    // Filters
+    filterStatus: "Фильтр по статусу",
+    all: "Все",
+    variantFilter: "Вариант",
+    sortBy: "Сортировка",
+    order: "Порядок",
+    ascending: "По возрастанию",
+    descending: "По убыванию",
+    perPage: "На странице",
+    showing: "Показано",
+    of: "из",
   }
 } as const;
 
