@@ -69,12 +69,38 @@ const ActivationKeysPage = () => {
   const [page, setPage] = useState<number>(1)
   const [total, setTotal] = useState<number>(0)
 
+  // Initialize filters from URL (e.g., /app/activation-keys?product_variant_id=...)
+  useEffect(() => {
+    try {
+      const search = typeof window !== "undefined" ? window.location.search : ""
+      const urlParams = new URLSearchParams(search)
+      const variantId = urlParams.get("product_variant_id")
+      if (variantId) {
+        setFilterVariant({
+          id: variantId,
+          title: "",
+          sku: undefined,
+          product_id: "",
+          product_title: "",
+          display_name: "Selected variant",
+        })
+        setPage(1)
+        // Trigger initial fetch using the preset filter (pass override to avoid race with state update)
+        fetchActivationKeys({ overrideVariantId: variantId })
+      }
+    } catch {
+      // ignore parsing errors
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Fetch activation keys
-  const fetchActivationKeys = async () => {
+  const fetchActivationKeys = async (opts?: { overrideVariantId?: string }) => {
     try {
       setLoading(true)
       const params = new URLSearchParams()
-      if (filterVariant?.id) params.set("product_variant_id", filterVariant.id)
+      const variantIdToUse = opts?.overrideVariantId ?? filterVariant?.id
+      if (variantIdToUse) params.set("product_variant_id", variantIdToUse)
       if (searchQuery.trim()) params.set("q", searchQuery.trim())
       if (filterIsUsed !== "") params.set("is_used", filterIsUsed)
       if (sortBy) params.set("sort", sortBy)
